@@ -37,7 +37,6 @@ Get help for any action:
    pdf_editor.py <action> -h
 """
 
-
 import argparse
 from pathlib import Path
 from pypdf import PdfWriter, PdfReader
@@ -45,6 +44,7 @@ from pypdf import PdfWriter, PdfReader
 
 class BasePDFTool:
     """Base class for PDF operations."""
+
     @classmethod
     def add_arguments(cls, subparsers):
         raise NotImplementedError
@@ -61,17 +61,15 @@ class MergeAction(BasePDFTool):
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Merge multiple PDF files")
         parser.add_argument(
-            "-i", "--inputs", 
-            nargs="+", 
-            type=argparse.FileType('rb'),
+            "-i",
+            "--inputs",
+            nargs="+",
+            type=argparse.FileType("rb"),
             required=True,
-            help="Input PDF files to merge"
+            help="Input PDF files to merge",
         )
         parser.add_argument(
-            "-o", "--output", 
-            type=Path, 
-            default="merged.pdf",
-            help="Output file name"
+            "-o", "--output", type=Path, default="merged.pdf", help="Output file name"
         )
 
     @classmethod
@@ -81,10 +79,10 @@ class MergeAction(BasePDFTool):
         try:
             for f in args.inputs:
                 writer.append(f)
-                
-            with open(args.output, 'wb') as out_file:
+
+            with open(args.output, "wb") as out_file:
                 writer.write(out_file)
-                
+
             print(f"Merged {len(args.inputs)} files -> {args.output}")
         finally:
             writer.close()
@@ -98,14 +96,19 @@ class SmartMergeAction(BasePDFTool):
     @classmethod
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Merge PDFs with page selection")
-        parser.add_argument("-i", "--inputs", nargs="+", required=True,
-                          help="Input files with optional page ranges (e.g., 'file.pdf:1-3')")
+        parser.add_argument(
+            "-i",
+            "--inputs",
+            nargs="+",
+            required=True,
+            help="Input files with optional page ranges (e.g., 'file.pdf:1-3')",
+        )
         parser.add_argument("-o", "--output", type=Path, required=True)
 
     @classmethod
     def _parse_input(cls, input_str):
-        if ':' in input_str:
-            path, pages = input_str.split(':', 1)
+        if ":" in input_str:
+            path, pages = input_str.split(":", 1)
             return Path(path), pages
         return Path(input_str), None
 
@@ -114,8 +117,8 @@ class SmartMergeAction(BasePDFTool):
         with PdfWriter() as writer:
             for input_spec in args.inputs:
                 path, pages = cls._parse_input(input_spec)
-                
-                with open(path, 'rb') as f, PdfReader(f) as reader:
+
+                with open(path, "rb") as f, PdfReader(f) as reader:
                     if pages:
                         pages = SplitAction._parse_page_ranges(
                             pages, len(reader.pages), zero_based=False
@@ -125,7 +128,7 @@ class SmartMergeAction(BasePDFTool):
                     else:
                         writer.append(reader)
 
-            with open(args.output, 'wb') as f:
+            with open(args.output, "wb") as f:
                 writer.write(f)
             print(f"Merged {len(args.inputs)} files -> {args.output}")
 
@@ -137,35 +140,36 @@ class SplitAction(BasePDFTool):
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Split PDF pages")
         parser.add_argument(
-            "-i", "--input", 
-            type=argparse.FileType('rb'),
+            "-i",
+            "--input",
+            type=argparse.FileType("rb"),
             required=True,
-            help="Input PDF file to split"
+            help="Input PDF file to split",
         )
         parser.add_argument(
-            "-p", "--pages", 
+            "-p",
+            "--pages",
             required=True,
-            help="Page ranges to extract (e.g., '1-3,5,7-9')"
+            help="Page ranges to extract (e.g., '1-3,5,7-9')",
         )
         parser.add_argument(
-            "-o", "--output", 
+            "-o",
+            "--output",
             type=str,
             required=True,
-            help="Output file pattern (use %%d for page numbers, e.g., 'output_%%d.pdf')"
+            help="Output file pattern (use %%d for page numbers, e.g., 'output_%%d.pdf')",
         )
         parser.add_argument(
-            "--zero-based",
-            action="store_true",
-            help="Use zero-based page numbering"
+            "--zero-based", action="store_true", help="Use zero-based page numbering"
         )
 
     @classmethod
     def _parse_page_ranges(cls, page_str, max_pages, zero_based=False):
         """Parse complex page ranges into list of page indices."""
         pages = []
-        for part in page_str.split(','):
-            if '-' in part:
-                start_end = part.split('-')
+        for part in page_str.split(","):
+            if "-" in part:
+                start_end = part.split("-")
                 if len(start_end) != 2:
                     raise ValueError(f"Invalid range: {part}")
                 start = int(start_end[0]) - (0 if zero_based else 1)
@@ -178,7 +182,9 @@ class SplitAction(BasePDFTool):
         # Validate pages
         for p in pages:
             if p < 0 or p >= max_pages:
-                raise ValueError(f"Page {p + (0 if zero_based else 1)} is out of range (1-{max_pages})")
+                raise ValueError(
+                    f"Page {p + (0 if zero_based else 1)} is out of range (1-{max_pages})"
+                )
 
         return sorted(set(pages))  # Remove duplicates and sort
 
@@ -188,9 +194,7 @@ class SplitAction(BasePDFTool):
             total_pages = len(reader.pages)
             try:
                 selected_pages = cls._parse_page_ranges(
-                    args.pages, 
-                    total_pages,
-                    args.zero_based
+                    args.pages, total_pages, args.zero_based
                 )
             except ValueError as e:
                 raise SystemExit(f"Error: {e}")
@@ -200,16 +204,20 @@ class SplitAction(BasePDFTool):
                 for page_num in selected_pages:
                     writer = PdfWriter()
                     writer.add_page(reader.pages[page_num])
-                    output_path = args.output % (page_num + (0 if args.zero_based else 1))
-                    with open(output_path, 'wb') as f:
+                    output_path = args.output % (
+                        page_num + (0 if args.zero_based else 1)
+                    )
+                    with open(output_path, "wb") as f:
                         writer.write(f)
-                    print(f"Saved page {page_num + (0 if args.zero_based else 1)} -> {output_path}")
+                    print(
+                        f"Saved page {page_num + (0 if args.zero_based else 1)} -> {output_path}"
+                    )
             else:
                 # Save all selected pages to single file
                 writer = PdfWriter()
                 for page_num in selected_pages:
                     writer.add_page(reader.pages[page_num])
-                with open(args.output, 'wb') as f:
+                with open(args.output, "wb") as f:
                     writer.write(f)
                 print(f"Saved {len(selected_pages)} pages -> {args.output}")
 
@@ -221,16 +229,18 @@ class CompressAction(BasePDFTool):
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Compress PDF file")
         parser.add_argument(
-            "-i", "--input", 
-            type=argparse.FileType('rb'),
+            "-i",
+            "--input",
+            type=argparse.FileType("rb"),
             required=True,
-            help="Input PDF file to compress"
+            help="Input PDF file to compress",
         )
         parser.add_argument(
-            "-o", "--output", 
-            type=Path, 
+            "-o",
+            "--output",
+            type=Path,
             required=True,
-            help="Output compressed PDF file"
+            help="Output compressed PDF file",
         )
 
     @classmethod
@@ -244,7 +254,7 @@ class CompressAction(BasePDFTool):
         for page in writer.pages:
             page.compress_content_streams()
 
-        with open(args.output, 'wb') as f:
+        with open(args.output, "wb") as f:
             writer.write(f)
 
         input_path = Path(args.input.name)
@@ -262,11 +272,16 @@ class EncryptAction(BasePDFTool):
     @classmethod
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Encrypt PDF with password")
-        parser.add_argument("-i", "--input", type=argparse.FileType('rb'), required=True)
+        parser.add_argument(
+            "-i", "--input", type=argparse.FileType("rb"), required=True
+        )
         parser.add_argument("-o", "--output", type=Path, required=True)
-        parser.add_argument("-p", "--password", required=True, help="Encryption password")
-        parser.add_argument("--allow-printing", action="store_true", 
-                          help="Allow printing of the PDF")
+        parser.add_argument(
+            "-p", "--password", required=True, help="Encryption password"
+        )
+        parser.add_argument(
+            "--allow-printing", action="store_true", help="Allow printing of the PDF"
+        )
 
     @classmethod
     def execute(cls, args):
@@ -282,10 +297,10 @@ class EncryptAction(BasePDFTool):
                 user_password=args.password,
                 owner_password=None,
                 use_128bit=True,
-                permissions_flag=permissions
+                permissions_flag=permissions,
             )
 
-            with open(args.output, 'wb') as f:
+            with open(args.output, "wb") as f:
                 writer.write(f)
             print(f"Encrypted PDF saved to {args.output}")
 
@@ -296,7 +311,9 @@ class DecryptAction(BasePDFTool):
     @classmethod
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Remove PDF password protection")
-        parser.add_argument("-i", "--input", type=argparse.FileType('rb'), required=True)
+        parser.add_argument(
+            "-i", "--input", type=argparse.FileType("rb"), required=True
+        )
         parser.add_argument("-o", "--output", type=Path, required=True)
         parser.add_argument("-p", "--password", required=True, help="Document password")
 
@@ -308,7 +325,7 @@ class DecryptAction(BasePDFTool):
 
             reader.decrypt(args.password)
 
-            with PdfWriter() as writer, open(args.output, 'wb') as f:
+            with PdfWriter() as writer, open(args.output, "wb") as f:
                 for page in reader.pages:
                     writer.add_page(page)
                 writer.write(f)
@@ -321,23 +338,26 @@ class ReorderAction(BasePDFTool):
     @classmethod
     def add_arguments(cls, subparsers):
         parser = subparsers.add_parser(cls.name, help="Reorder PDF pages")
-        parser.add_argument("-i", "--input", type=argparse.FileType('rb'), required=True)
+        parser.add_argument(
+            "-i", "--input", type=argparse.FileType("rb"), required=True
+        )
         parser.add_argument("-o", "--output", type=Path, required=True)
-        parser.add_argument("-r", "--order", required=True,
-                          help="New page order (e.g., '3,1,2')")
+        parser.add_argument(
+            "-r", "--order", required=True, help="New page order (e.g., '3,1,2')"
+        )
 
     @classmethod
     def execute(cls, args):
         with PdfReader(args.input) as reader:
             try:
-                new_order = [int(x) - 1 for x in args.order.split(',')]
+                new_order = [int(x) - 1 for x in args.order.split(",")]
                 max_page = len(reader.pages) - 1
 
                 for page_num in new_order:
                     if page_num < 0 or page_num > max_page:
                         raise ValueError(f"Invalid page number: {page_num + 1}")
 
-                with PdfWriter() as writer, open(args.output, 'wb') as f:
+                with PdfWriter() as writer, open(args.output, "wb") as f:
                     for page_num in new_order:
                         writer.add_page(reader.pages[page_num])
                     writer.write(f)
@@ -352,12 +372,10 @@ class PDFEditor:
         self.actions = {}
         self.parser = argparse.ArgumentParser(
             description="PDF Editor Tool",
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         )
         self.subparsers = self.parser.add_subparsers(
-            title="Available actions",
-            dest="action",
-            required=True
+            title="Available actions", dest="action", required=True
         )
 
     def register_action(self, action_cls):
